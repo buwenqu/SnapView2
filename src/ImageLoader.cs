@@ -19,6 +19,7 @@ static class ImageLoader
         {
             w.SrcBitmap = new Bitmap(path);
             w.OrigW = w.SrcBitmap.Width; w.OrigH = w.SrcBitmap.Height;
+        w.CurrentFileName = Path.GetFileName(path);
 
             // GIF 动画：提取帧数和延迟
             if (Path.GetExtension(path).ToLowerInvariant() == ".gif" &&
@@ -98,6 +99,10 @@ static class ImageLoader
         if (i >= w.ImageFiles.Count) i = 0;
         if (i == w.CurrentIndex) return;
         Load(w, w.ImageFiles[i]);
+        // 先启动提示，再渲染（确保渲染时提示已生效）
+        w.ShowScaleHint = true;
+        KillTimer(w.Hwnd, w.ScaleHintTimer);
+        w.ScaleHintTimer = SetTimer(w.Hwnd, (IntPtr)1, 500, IntPtr.Zero);
         Rendering.SetScale(w, w.Scale);
         Rendering.Render(w);
     }

@@ -37,6 +37,8 @@ static class WindowManager
                 return IntPtr.Zero;
 
             case WM_LBUTTONDOWN:
+                if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0)
+                { w.ShowWhiteBg = !w.ShowWhiteBg; Rendering.Render(w); return IntPtr.Zero; }
                 {
                     int mx = (short)(lp.ToInt32() & 0xFFFF), my = (short)((lp.ToInt32() >> 16) & 0xFFFF);
                     SetCapture(hwnd); GetWindowRect(hwnd, out RECT r);

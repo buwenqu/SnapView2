@@ -44,6 +44,10 @@ static class Rendering
             using var dest = new Bitmap(ww, hh, PixelFormat.Format32bppPArgb);
             using var g = Graphics.FromImage(dest);
 
+            // Ctrl+左键切换白色背景
+            if (w.ShowWhiteBg)
+            { using var wbg = new SolidBrush(Color.White); g.FillRectangle(wbg, GLOW_MARGIN, GLOW_MARGIN, imgW, imgH); }
+
             if (w.Resizing) { g.InterpolationMode = InterpolationMode.NearestNeighbor; g.PixelOffsetMode = PixelOffsetMode.HighSpeed; }
             else { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality; }
             g.DrawImage(w.SrcBitmap, GLOW_MARGIN, GLOW_MARGIN, imgW, imgH);
@@ -69,19 +73,23 @@ static class Rendering
 
             if (w.ShowScaleHint)
             {
+                string t0 = w.CurrentFileName ?? "";
                 string t1 = $"大小：{(int)(w.Scale * 100)}%";
                 string t2 = $"不透明度：{(int)(w.Opacity * 100)}%";
                 using var font = new Font("Microsoft YaHei", 14, FontStyle.Regular);
+                var sz0 = g.MeasureString(t0, font);
                 var sz1 = g.MeasureString(t1, font);
                 var sz2 = g.MeasureString(t2, font);
-                float mw = Math.Max(sz1.Width, sz2.Width);
+                float mw = Math.Max(Math.Max(sz0.Width, sz1.Width), sz2.Width);
                 int tx = GLOW_MARGIN + 6, ty = GLOW_MARGIN + 6;
-                int tw = (int)mw + 12, th = (int)(sz1.Height + sz2.Height) + 8;
+                int tw = (int)mw + 12, th = (int)(sz0.Height + sz1.Height + sz2.Height) + 8;
                 using var bg = new SolidBrush(Color.FromArgb(160, 0, 0, 0));
                 g.FillRectangle(bg, tx, ty, tw, th);
                 using var fg = new SolidBrush(Color.White);
-                g.DrawString(t1, font, fg, tx + 6, ty + 4);
-                g.DrawString(t2, font, fg, tx + 6, ty + 4 + sz1.Height);
+                float y = ty + 4;
+                g.DrawString(t0, font, fg, tx + 6, y); y += sz0.Height;
+                g.DrawString(t1, font, fg, tx + 6, y); y += sz1.Height;
+                g.DrawString(t2, font, fg, tx + 6, y);
             }
 
             var hBmp = dest.GetHbitmap(Color.FromArgb(0, 0, 0, 0));

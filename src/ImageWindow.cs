@@ -24,5 +24,8 @@ class ImageWindow
     public int GifFrameCount;
     public int GifFrame;
     public int[]? GifDelays; // 每帧延迟（毫秒）
-    public IntPtr GifTimer;
+    public IntPtr GifTimer;    // 白色背景
+    public bool ShowWhiteBg;
+    // 当前文件名（用于切换提示）
+    public string? CurrentFileName;
 }
