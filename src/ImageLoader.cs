@@ -19,7 +19,7 @@ static class ImageLoader
         {
             w.SrcBitmap = new Bitmap(path);
             w.OrigW = w.SrcBitmap.Width; w.OrigH = w.SrcBitmap.Height;
-        w.CurrentFileName = Path.GetFileName(path);
+            w.CurrentFileName = Path.GetFileName(path);
 
             // GIF 动画：提取帧数和延迟
             if (Path.GetExtension(path).ToLowerInvariant() == ".gif" &&
