@@ -6,6 +6,9 @@ obj/
 *.cache
 *.vs/
 
+# Build output (already covered by bin/ and obj/)
+publish/
+
 # NuGet
 *.nupkg
 **/packages/
