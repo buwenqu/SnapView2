@@ -35,6 +35,9 @@ class ImageWindow
     public string? CurrentFolder;
     public readonly List<string> ImageFiles = new();
     public int CurrentIndex = -1;
+    // 缩放百分比提示
+    public bool ShowScaleHint;
+    public IntPtr ScaleHintTimer;
 }
 
 class Program
@@ -51,9 +54,11 @@ class Program
     const int WM_NCHITTEST = 0x0084, WM_GETMINMAXINFO = 0x0024, WM_ACTIVATE = 0x0006;
     const int WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202, WM_MOUSEMOVE = 0x0200;
     const int WM_MBUTTONDOWN = 0x0207, WM_MOUSEWHEEL = 0x020A, WM_KEYDOWN = 0x0100;
+    const int WM_TIMER = 0x0113;
     const int VK_ESCAPE = 0x1B, VK_LEFT = 0x25, VK_RIGHT = 0x27, VK_CONTROL = 0x11;
     const double MIN_SCALE = 0.1, MAX_SCALE = 5.0, SCALE_FACTOR = 1.1;
     const double RESIZE_EDGE = 20.0, OPACITY_STEP = 0.05;
+    const int GLOW_MARGIN = 4; // 外发光边距（窗口 = 图片 + 2*GLOW_MARGIN）
     static readonly string[] Extensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp" };
     const string WND_CLASS = "SnapViewWnd";
 
@@ -85,6 +90,8 @@ class Program
     [DllImport("user32")] static extern void PostQuitMessage(int code);
     [DllImport("user32")] static extern IntPtr LoadCursor(IntPtr h, int id);
     [DllImport("user32")] static extern IntPtr SetCursor(IntPtr hCursor);
+    [DllImport("user32")] static extern IntPtr SetTimer(IntPtr hWnd, IntPtr nIDEvent, uint uElapse, IntPtr lpTimerFunc);
+    [DllImport("user32")] static extern bool KillTimer(IntPtr hWnd, IntPtr nIDEvent);
     [DllImport("user32", EntryPoint = "SetWindowLongPtrW")]
     static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
     [DllImport("user32", EntryPoint = "GetWindowLongPtrW")]
@@ -127,8 +134,8 @@ class Program
             var win = new ImageWindow();
             if (!LoadImage(win, file)) continue;
 
-            int w = Math.Max(1, (int)Math.Ceiling(win.OrigW * win.Scale));
-            int h = Math.Max(1, (int)Math.Ceiling(win.OrigH * win.Scale));
+            int w = Math.Max(1, (int)Math.Ceiling(win.OrigW * win.Scale) + GLOW_MARGIN * 2);
+            int h = Math.Max(1, (int)Math.Ceiling(win.OrigH * win.Scale) + GLOW_MARGIN * 2);
 
             var gc = GCHandle.Alloc(win);
             win.Hwnd = CreateWindowExW(
@@ -243,7 +250,7 @@ class Program
             case WM_MBUTTONDOWN:
                 w.Topmost = !w.Topmost;
                 SetWindowPos(hwnd, w.Topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
-                    0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                 Render(w);
                 return IntPtr.Zero;
 
@@ -271,6 +278,12 @@ class Program
                 }
                 return IntPtr.Zero;
 
+            case WM_TIMER:
+                KillTimer(hwnd, wp);
+                w.ShowScaleHint = false;
+                Render(w);
+                return IntPtr.Zero;
+
             case WM_CLOSE:
                 DestroyWindow(hwnd);
                 return IntPtr.Zero;
@@ -292,10 +305,16 @@ class Program
         if (Math.Abs(s - w.Scale) < 0.0001) return;
         w.Scale = s;
         GetWindowRect(w.Hwnd, out RECT r);
-        int nw = Math.Max(1, (int)Math.Ceiling(w.OrigW * s));
-        int nh = Math.Max(1, (int)Math.Ceiling(w.OrigH * s));
+        int nw = Math.Max(1, (int)Math.Ceiling(w.OrigW * s) + GLOW_MARGIN * 2);
+        int nh = Math.Max(1, (int)Math.Ceiling(w.OrigH * s) + GLOW_MARGIN * 2);
         SetWindowPos(w.Hwnd, IntPtr.Zero, r.Left, r.Top, nw, nh,
             SWP_NOZORDER | SWP_NOACTIVATE);
+
+        // 显示缩放百分比，0.5 秒后自动消失
+        w.ShowScaleHint = true;
+        KillTimer(w.Hwnd, w.ScaleHintTimer);
+        w.ScaleHintTimer = SetTimer(w.Hwnd, (IntPtr)1, 500, IntPtr.Zero);
+
         Render(w);
     }
 
@@ -303,23 +322,55 @@ class Program
     static void Render(ImageWindow w)
     {
         if (w.SrcBitmap == null || w.Hwnd == IntPtr.Zero) return;
-        int ww = Math.Max(1, (int)Math.Ceiling(w.OrigW * w.Scale));
-        int hh = Math.Max(1, (int)Math.Ceiling(w.OrigH * w.Scale));
+        int imgW = Math.Max(1, (int)Math.Ceiling(w.OrigW * w.Scale));
+        int imgH = Math.Max(1, (int)Math.Ceiling(w.OrigH * w.Scale));
+        int ww = imgW + GLOW_MARGIN * 2;
+        int hh = imgH + GLOW_MARGIN * 2;
 
         try
         {
             using var dest = new Bitmap(ww, hh, PixelFormat.Format32bppPArgb);
             using var g = Graphics.FromImage(dest);
+
+            // 图片渲染在中央（四周留 GLOW_MARGIN 给外发光）
             if (w.Resizing) { g.InterpolationMode = InterpolationMode.NearestNeighbor; g.PixelOffsetMode = PixelOffsetMode.HighSpeed; }
             else { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality; }
-            g.DrawImage(w.SrcBitmap, 0, 0, ww, hh);
+            g.DrawImage(w.SrcBitmap, GLOW_MARGIN, GLOW_MARGIN, imgW, imgH);
 
-            Color glowC, borderC;
-            if (w.Active) { glowC = w.Topmost ? Color.FromArgb(180, 0, 200, 80) : Color.FromArgb(120, 30, 200, 255); borderC = w.Topmost ? Color.FromArgb(120, 0, 200, 80) : Color.FromArgb(180, 80, 160, 255); }
-            else { glowC = Color.FromArgb(120, 30, 144, 255); borderC = Color.FromArgb(180, 80, 160, 255); }
-            using var gp = new Pen(glowC, 8); using var bp = new Pen(borderC, 2);
-            g.DrawRectangle(gp, 4, 4, ww - 8, hh - 8);
-            g.DrawRectangle(bp, 1, 1, ww - 2, hh - 2);
+            // 描边颜色：置顶→绿色系，普通→蓝色系；激活→亮，未激活→暗
+            bool act = w.Active; bool top = w.Topmost;
+            int r, gv, b;
+            if (top) { r = 0; gv = act ? 200 : 140; b = act ? 80 : 50; }
+            else { r = 30; gv = act ? 200 : 144; b = 255; }
+            Rectangle imgRect = new(GLOW_MARGIN, GLOW_MARGIN, imgW, imgH);
+
+            for (int i = GLOW_MARGIN - 1; i >= 0; i--)
+            {
+                float t = (float)i / GLOW_MARGIN;                      // 0(外) → 1(内)
+                int a = (int)(30 + 150 * t * t);                       // 外30 → 内180
+                using var pen = new Pen(Color.FromArgb(a, r, gv, b), 1);
+                g.DrawRectangle(pen, imgRect.Left - i, imgRect.Top - i,
+                    imgRect.Width + i * 2 - 1, imgRect.Height + i * 2 - 1);
+            }
+
+            // 最内层一道细实线描边（紧贴图片边缘）
+            using var edgePen = new Pen(Color.FromArgb(act ? 220 : 200, r, gv, b), 1);
+            g.DrawRectangle(edgePen, imgRect.Left - 1, imgRect.Top - 1,
+                imgRect.Width + 1, imgRect.Height + 1);
+
+            // 缩放百分比提示
+            if (w.ShowScaleHint)
+            {
+                string text = $"大小：{(int)(w.Scale * 100)}%";
+                using var font = new Font("Microsoft YaHei", 14, FontStyle.Regular);
+                var textSize = g.MeasureString(text, font);
+                int tx = GLOW_MARGIN + 6, ty = GLOW_MARGIN + 6;
+                int tw = (int)textSize.Width + 12, th = (int)textSize.Height + 6;
+                using var bgBrush = new SolidBrush(Color.FromArgb(160, 0, 0, 0));
+                g.FillRectangle(bgBrush, tx, ty, tw, th);
+                using var textBrush = new SolidBrush(Color.White);
+                g.DrawString(text, font, textBrush, tx + 6, ty + 3);
+            }
 
             var hBmp = dest.GetHbitmap(Color.FromArgb(0, 0, 0, 0));
             var sdc = GetDC(IntPtr.Zero);
