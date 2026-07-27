@@ -54,6 +54,8 @@ class Program
     const int WM_NCHITTEST = 0x0084, WM_GETMINMAXINFO = 0x0024, WM_ACTIVATE = 0x0006;
     const int WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202, WM_MOUSEMOVE = 0x0200;
     const int WM_MBUTTONDOWN = 0x0207, WM_MOUSEWHEEL = 0x020A, WM_KEYDOWN = 0x0100;
+    const int WM_MOUSEACTIVATE = 0x0021;
+    const int MA_ACTIVATE = 1;
     const int WM_TIMER = 0x0113;
     const int VK_ESCAPE = 0x1B, VK_LEFT = 0x25, VK_RIGHT = 0x27, VK_CONTROL = 0x11;
     const double MIN_SCALE = 0.1, MAX_SCALE = 5.0, SCALE_FACTOR = 1.1;
@@ -75,6 +77,7 @@ class Program
     [DllImport("user32")] static extern short GetAsyncKeyState(int k);
     [DllImport("user32")] static extern IntPtr SetCapture(IntPtr h);
     [DllImport("user32")] static extern bool ReleaseCapture();
+    [DllImport("user32")] static extern IntPtr SetFocus(IntPtr h);
     [DllImport("user32")] static extern bool UpdateLayeredWindow(IntPtr h, IntPtr d, ref POINT dp, ref SIZE s, IntPtr m, ref POINT sp, int cr, ref BLENDFUNCTION b, uint f);
     [DllImport("user32")] static extern IntPtr GetDC(IntPtr h);
     [DllImport("user32")] static extern int ReleaseDC(IntPtr h, IntPtr dc);
@@ -190,6 +193,10 @@ class Program
                 Marshal.StructureToPtr(mmi, lp, true);
                 return IntPtr.Zero;
 
+            case WM_MOUSEACTIVATE:
+                SetFocus(hwnd);
+                return (IntPtr)MA_ACTIVATE;
+
             case WM_ACTIVATE:
                 w.Active = (wp != IntPtr.Zero && (wp.ToInt32() & 0xFFFF) != 0);
                 Render(w);
@@ -260,6 +267,9 @@ class Program
                     if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0)
                     {
                         w.Opacity = Math.Max(0.1, Math.Min(1.0, w.Opacity + (delta > 0 ? OPACITY_STEP : -OPACITY_STEP)));
+                        w.ShowScaleHint = true;
+                        KillTimer(hwnd, w.ScaleHintTimer);
+                        w.ScaleHintTimer = SetTimer(hwnd, (IntPtr)1, 500, IntPtr.Zero);
                         Render(w);
                     }
                     else
@@ -361,15 +371,19 @@ class Program
             // 缩放百分比提示
             if (w.ShowScaleHint)
             {
-                string text = $"大小：{(int)(w.Scale * 100)}%";
+                string text1 = $"大小：{(int)(w.Scale * 100)}%";
+                string text2 = $"不透明度：{(int)(w.Opacity * 100)}%";
                 using var font = new Font("Microsoft YaHei", 14, FontStyle.Regular);
-                var textSize = g.MeasureString(text, font);
+                var sz1 = g.MeasureString(text1, font);
+                var sz2 = g.MeasureString(text2, font);
+                float maxW = Math.Max(sz1.Width, sz2.Width);
                 int tx = GLOW_MARGIN + 6, ty = GLOW_MARGIN + 6;
-                int tw = (int)textSize.Width + 12, th = (int)textSize.Height + 6;
+                int tw = (int)maxW + 12, th = (int)(sz1.Height + sz2.Height) + 8;
                 using var bgBrush = new SolidBrush(Color.FromArgb(160, 0, 0, 0));
                 g.FillRectangle(bgBrush, tx, ty, tw, th);
                 using var textBrush = new SolidBrush(Color.White);
-                g.DrawString(text, font, textBrush, tx + 6, ty + 3);
+                g.DrawString(text1, font, textBrush, tx + 6, ty + 4);
+                g.DrawString(text2, font, textBrush, tx + 6, ty + 4 + sz1.Height);
             }
 
             var hBmp = dest.GetHbitmap(Color.FromArgb(0, 0, 0, 0));
@@ -436,5 +450,6 @@ class Program
         if (i == w.CurrentIndex) return;
         LoadImage(w, w.ImageFiles[i]);
         SetScale(w, w.Scale);
+        Render(w); // 即使缩放值相同也必须重绘（切到了新图片）
     }
 }
