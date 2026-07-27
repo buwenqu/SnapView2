@@ -52,6 +52,9 @@ class Program
 
             if (win.Hwnd == IntPtr.Zero) { gc.Free(); continue; }
 
+            // GIF 动画：启动帧切换定时器
+            ImageLoader.StartGifTimer(win);
+
             RECT wa = default;
             SystemParametersInfoW(SPI_GETWORKAREA, 0, ref wa, 0);
             int cx = Math.Max(0, (wa.Right - wa.Left - w) / 2);

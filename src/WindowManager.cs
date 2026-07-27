@@ -82,7 +82,19 @@ static class WindowManager
                 return IntPtr.Zero;
 
             case WM_TIMER:
-                KillTimer(hwnd, wp); w.ShowScaleHint = false; Rendering.Render(w); return IntPtr.Zero;
+                if (wp == (IntPtr)1) // 缩放/透明度提示定时器
+                {
+                    KillTimer(hwnd, wp);
+                    w.ShowScaleHint = false;
+                    Rendering.Render(w);
+                }
+                else if (wp == (IntPtr)2 && w.IsGif) // GIF 帧切换定时器
+                {
+                    w.GifFrame = (w.GifFrame + 1) % w.GifFrameCount;
+                    ImageLoader.StartGifTimer(w);
+                    Rendering.Render(w);
+                }
+                return IntPtr.Zero;
 
             case WM_CLOSE: DestroyWindow(hwnd); return IntPtr.Zero;
             case WM_DESTROY: w.SrcBitmap?.Dispose(); GCHandle.FromIntPtr(GetWindowLongPtr(hwnd, 0)).Free(); PostQuitMessage(0); return IntPtr.Zero;

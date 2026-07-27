@@ -19,4 +19,10 @@ class ImageWindow
     public int CurrentIndex = -1;
     public bool ShowScaleHint;
     public IntPtr ScaleHintTimer;
+    // GIF 动画
+    public bool IsGif;
+    public int GifFrameCount;
+    public int GifFrame;
+    public int[]? GifDelays; // 每帧延迟（毫秒）
+    public IntPtr GifTimer;
 }

@@ -37,6 +37,10 @@ static class Rendering
 
         try
         {
+            // GIF 动画：切换到当前帧
+            if (w.IsGif && w.GifFrameCount > 1)
+                w.SrcBitmap.SelectActiveFrame(FrameDimension.Time, w.GifFrame);
+
             using var dest = new Bitmap(ww, hh, PixelFormat.Format32bppPArgb);
             using var g = Graphics.FromImage(dest);
 
