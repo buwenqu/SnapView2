@@ -4,19 +4,19 @@ A minimal, keyboard-driven image viewer for Windows. Displays images in a border
 
 ## Feature Overview
 
-**Arbitrary zoom range (10%–500%).** Images scale continuously via scroll wheel or corner-drag. Window dimensions are not clamped to the display resolution, and the rendering path avoids the WPF `DrawImage` clipping issue by composing frames through `UpdateLayeredWindow` with a GDI+ back buffer.
+- **Arbitrary zoom range (10%–500%).** Images scale continuously via scroll wheel or corner-drag. Window dimensions are not clamped to the display resolution, and the rendering path avoids the WPF `DrawImage` clipping issue by composing frames through `UpdateLayeredWindow` with a GDI+ back buffer.
 
-**Per-window transparency.** Opacity is adjustable with Ctrl+Scroll and implemented via the `SourceConstantAlpha` field of `BLENDFUNCTION`, avoiding `SetLayeredWindowAttributes` which interferes with per-pixel alpha blending.
+- **Per-window transparency.** Opacity is adjustable with Ctrl+Scroll and implemented via the `SourceConstantAlpha` field of `BLENDFUNCTION`, avoiding `SetLayeredWindowAttributes` which interferes with per-pixel alpha blending.
 
-**Always-on-top mode.** Toggled by middle-click. Uses `HWND_TOPMOST` / `HWND_NOTOPMOST` with `SetWindowPos`.
+- **Always-on-top mode.** Toggled by middle-click. Uses `HWND_TOPMOST` / `HWND_NOTOPMOST` with `SetWindowPos`.
 
-**GIF animation playback.** Frame delays are extracted from the GIF metadata (property tag `0x5100`). Frame advancement is driven by a Win32 timer (`WM_TIMER`).
+- **GIF animation playback.** Frame delays are extracted from the GIF metadata (property tag `0x5100`). Frame advancement is driven by a Win32 timer (`WM_TIMER`).
 
-**Ctrl+Click white background.** A convenience for images with alpha channels; fills the image rect with white before drawing the source bitmap.
+- **Ctrl+Click white background.** A convenience for images with alpha channels; fills the image rect with white before drawing the source bitmap.
 
-**Directory browsing.** Left/Right arrow keys navigate alphabetically through sibling image files in the same directory. A 500 ms overlay in the top-left corner shows the current filename, zoom level, and opacity after each change.
+- **Directory browsing.** Left/Right arrow keys navigate alphabetically through sibling image files in the same directory. A 500 ms overlay in the top-left corner shows the current filename, zoom level, and opacity after each change.
 
-**File format support** via GDI+: JPEG, PNG, BMP, GIF, WebP.
+- **File format support** via GDI+: JPEG, PNG, BMP, GIF, WebP.
 
 ## Controls
 
