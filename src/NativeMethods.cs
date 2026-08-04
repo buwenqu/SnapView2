@@ -78,6 +78,8 @@ static class NativeMethods
     public static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
     [DllImport("user32", CharSet = CharSet.Unicode)]
     public static extern int MessageBoxW(IntPtr h, string text, string caption, uint type);
+    [DllImport("shlwapi", CharSet = CharSet.Unicode)]
+    public static extern int StrCmpLogicalW(string x, string y);
 }
 
 delegate IntPtr WndProcDelegate(IntPtr h, uint m, IntPtr w, IntPtr l);

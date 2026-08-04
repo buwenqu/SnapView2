@@ -19,6 +19,21 @@ static class ImageLoader
         {
             w.SrcBitmap = new Bitmap(path);
             w.OrigW = w.SrcBitmap.Width; w.OrigH = w.SrcBitmap.Height;
+
+            // 超大图预缩：限制最大边 ≤ 4096，大幅减少内存和渲染开销
+            const int MAX_DIM = 4096;
+            if (Math.Max(w.OrigW, w.OrigH) > MAX_DIM)
+            {
+                double ratio = (double)MAX_DIM / Math.Max(w.OrigW, w.OrigH);
+                int nw = (int)(w.OrigW * ratio), nh = (int)(w.OrigH * ratio);
+                var scaled = new Bitmap(nw, nh);
+                using var g = Graphics.FromImage(scaled);
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.DrawImage(w.SrcBitmap, 0, 0, nw, nh);
+                w.SrcBitmap.Dispose();
+                w.SrcBitmap = scaled;
+                // origW/origH 保持原始尺寸（缩放计算基于原始尺寸，窗口大小不受影响）
+            }
             w.CurrentFileName = Path.GetFileName(path);
 
             // GIF 动画：提取帧数和延迟
@@ -84,7 +99,7 @@ static class ImageLoader
         {
             w.ImageFiles.AddRange(Directory.EnumerateFiles(dir)
                 .Where(f => ImageExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .OrderBy(f => f, StringComparer.CurrentCultureIgnoreCase));
+                .OrderBy(f => f, Comparer<string>.Create((a, b) => StrCmpLogicalW(a, b))));
             w.CurrentIndex = w.ImageFiles.FindIndex(f =>
                 string.Equals(f, currentFile, StringComparison.OrdinalIgnoreCase));
         }
