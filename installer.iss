@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=SnapView
-AppVersion=1.0.1
+AppVersion=1.1.1
 AppPublisher=SnapView
 DefaultDirName={autopf}\SnapView
 DefaultGroupName=SnapView
